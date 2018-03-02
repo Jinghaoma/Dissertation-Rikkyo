@@ -6,7 +6,7 @@ library(coda)
 # register CPU cores for parallel processing
 library(doParallel)
 library(foreach)
-cl <- makeCluster(2)
+cl <- makeCluster(6)
 registerDoParallel(cl)
 getDoParWorkers()
 
@@ -19,53 +19,55 @@ getDoParWorkers()
 ## SETTINGS
 ## ======================================================================
 
-minN <- 10				# minimum n before optional stopping is started
-maxN <- 45000			# maximum n - if that is reached without hitting a boundary, the run is aborted
-iterations <- 5000		# iterations for posterior draws
-B <- 50016				# number of bootstrap samples (should be dividable by getDoParWorkers())
-maxBoundary <- log(30)	# maximal boundary for stopping, in log-units
-boundaries <- seq(3, 30, by=1)	# all boundaries that are computed
-ds <- seq(1.5, 0, by=-.1)
-rs <- c(sqrt(2)/2, 1, sqrt(2))
+minN <- 10				# 最小样本数
+maxN <- 45000			# 最大样本数
+iterations <- 5000		# iterations for posterior draws（迭代后抽签）
+B <- 50016				# bootstrap样本数，应该被核心数整除 number of bootstrap samples (should be dividable by getDoParWorkers())
+maxBoundary <- log(30)	# 最大边界的停止值，取对数
+boundaries <- seq(3, 30, by=1)	# 所有的边界3-30，1为间隔
+ds <- seq(1.5, 0, by=-.1)    #效应量大小
+rs <- c(sqrt(2)/2, 1, sqrt(2))  #柯西分布的参数
 
 
 ## ======================================================================
 ## THE SIMULATION
 ## ======================================================================
 
+#生成指定效果了大小的母集团
 get_population <- function(n, d, SD=1) {
 	x <- rnorm(n, 0, SD)
 	y <- rnorm(n, 0, SD) - d
 	return(cbind(x, y))
 }
 
-# compute sample sizes that are simulated: increasing step size for large n's
+# 计算模拟样本的大小，增大步长，最小到99为止是1，100到995是5 compute sample sizes that are simulated: increasing step size for large n's
 ns <- c(minN:99, seq(100, 995, by=5), seq(1000, 2490, by=10), seq(2500, 5000, by=20),seq(5050, maxN, by=50))	
 
 print(start <- Sys.time())
 
 
-# do not combine the results, each fork saves the result to a file.
+# 不合并结果，每个样本量保存到分别的文件中 do not combine the results, each fork saves the result to a file.
 sim <- foreach(batch=1:getDoParWorkers(), .combine=function(...) {}) %do% {    
 	
 	max_b <- round(B/getDoParWorkers())
-	
+	# 每个效应量循环
 	for (d in ds) {
 		
 		# final saves the data at all stopping points
 		final <- matrix(NA, nrow=length(boundaries)*length(rs)*max_b, ncol=14, dimnames=list(NULL, c("boundary", "d", "r", "batch", "rep", "n", "logBF", "d.emp", "t.value", "p.value", "HPD.mean", "HPD.median", "HPD.lower", "HPD.upper")))
 		final.counter <- 1
-
+    #获得模样本，1百万，
 		pop <- get_population(1000000, d)		
 		print(paste0(Sys.time(), ": batch = ", batch, "; d = ", d))
 		
 		for (b in 1:max_b) {
 			
-			# res saves the statistics at each step
+			# 在每1步保存统计信息  res saves the statistics at each step
 			res <- matrix(NA, nrow=length(ns)*length(rs), ncol=9, dimnames=list(NULL, c("d", "r", "batch", "rep", "n", "logBF", "d.emp", "t.value", "p.value")))
 			res.counter <- 1
 			print(paste0(Sys.time(), ": batch = ", batch, "; d = ",d, "; Rep = ", b, "/", round(B/getDoParWorkers())))
 			
+			#
 			maxsamp <- pop[sample(nrow(pop), maxN), ]
 			
 			for (r in rs) {				
