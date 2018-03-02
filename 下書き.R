@@ -1,35 +1,19 @@
-a = rnorm(50,0,1)
-b = rnorm(50,1,1)
-c = rnorm(50,2,1)
-
-dat = c(a,b,c)
-
-asd2 = sd(a)^2*49
-bsd2 = sd(b)^2*49
-csd2 = sd(c)^2*49
-am = sum(asd2)
-bm = sum(bsd2)
-cm = sum(csd2)
-
-wi = sum(am,bm,cm)
-
-datsd2 = sd(dat)^2
-datm = sum(datsd2)
-
-asdd2 = (mean(a)-mean(dat))^2*50
-bsdd2 = (mean(b)-mean(dat))^2*50
-csdd2 = (mean(c)-mean(dat))^2*50
-
-bw = sum(asdd2,bsdd2,csdd2)
-
-#sd^2*(n-1)
-wii = 1^2*49*3
-#mea
-al_me = (0*50+1*50+2*50)/150
-al = (0-al_me)^2*50+(1-al_me)^2*50+(2-al_me)^2*50
-al
-print(wii+al)
-wii/al
-print(wi+bw)
-
-print(datm*149)
+func <- function(x) {
+  n = 1
+  raw <- x
+  while (x > 1) {
+    x <- ifelse(x%%2==0,x/2,3*x+1)
+    n = n + 1
+  }
+  return(c(raw,n))
+}
+func(4)
+library(parallel)
+# 用system.time来返回计算所需时间
+system.time({
+  x <- 1:1e5
+  cl <- makeCluster(6) # 初始化6核心集群
+  results <- parLapply(cl,x,func) # lapply的并行版本
+  res.df <- do.call('rbind',results) # 整合结果
+  stopCluster(cl) # 关闭集群
+})
