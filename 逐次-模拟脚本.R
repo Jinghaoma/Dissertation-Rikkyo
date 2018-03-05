@@ -21,16 +21,18 @@ getDoParWorkers()
 
 minN <- 5				# 最小样本数
 maxN <- 10000			# 最大样本数
-B <- 50016				# bootstrap样本数，应该被核心数整除 number of bootstrap samples (should be dividable by getDoParWorkers())
+B = 600
+#B <- 50016				# bootstrap样本数，应该被核心数整除 number of bootstrap samples (should be dividable by getDoParWorkers())
 maxBoundary <- log(30)	# 最大边界的停止值，取对数
 boundaries <- seq(3, 30, by=1)	# 所有的边界3-30，1为间隔
-etas <- seq(0.5, 0.05, by=-.05)    #效应量大小
+etas = 0.01
+#etas <- seq(0.5, 0.05, by=-.05)    #效应量大小
 #etas <- seq(0, 0.5, by=.05)    #效应量大小
 rs <- c(sqrt(2)/2, 1, sqrt(2))  #柯西分布的参数
 
 #生成指定效果了大小的母集团
-get_population <- function(n, eat2, SD=1) {
-  cohen_f <- sqrt(eat2/(1-eat2))
+get_population <- function(n, eta2, SD=1) {
+  cohen_f <- sqrt(eta2/(1-eta2))
   
   x <- rnorm(n, 0, SD) + cohen_f
   y <- rnorm(n, 0, SD) - cohen_f
@@ -66,7 +68,7 @@ epsilon2 <- function(y){
 }
 
 
-ns <- c(minN:199, seq(200, 995, by=5), seq(1000, 2490, by=10), seq(2500, 5000, by=20),seq(5050, maxN, by=50))	
+ns <- c(minN:149, seq(150, 995, by=5), seq(1000, 2490, by=10), seq(2500, 5000, by=20),seq(5050, maxN, by=50))	
 
 print(start <- Sys.time())
 
@@ -91,7 +93,7 @@ sim <- foreach(batch=1:getDoParWorkers(), .combine=function(...) {}) %do% {
       res.counter <- 1
       print(paste0(Sys.time(), ": batch = ", batch, "; eta = ",eta , "; Rep = ", b, "/", round(B/getDoParWorkers())))
       
-      #
+      # 生成样本
       maxsamp <- pop[sample(nrow(pop), maxN), ]
       
       for (r in rs) {				
@@ -101,18 +103,19 @@ sim <- foreach(batch=1:getDoParWorkers(), .combine=function(...) {}) %do% {
         
         # increase sample size until the final boundary is hit
         finalhit <- FALSE	# tracks whether a trajectory does not hit a boundary beforemax.n is reached
+        
         for (n in ns) {
           # 生成样本
           samp <- maxsamp[1:n, ]
           N <- nrow(samp)
-          samp = data.frame(c(samp),factor(rep(1:2,each=n)))
-          names(samp) = c("y","x")
+          samp = data.frame(y = c(samp),x = factor(rep(1:2,each=n)))
           
           # 计算分散分析和BF
           f0 <- summary(aov(y~x,data = samp))
           f.v = c(f0[[1]]$`F value`[1])
-          BF0 = oneWayAOV.Fstat(f.v, n, 2, rscale = r, simple = TRUE)
-
+          BF0 = anovaBF(y~x,data = samp,rscaleEffects = r,progress=F)@bayesFactor$bf
+          #BF0 = oneWayAOV.Fstat(f.v, n, 2, rscale = r, simple = TRUE)
+          
           res0[which(ns == n), ]<- c(
             eta	= eta, 
             r 	= r, 
@@ -136,7 +139,7 @@ sim <- foreach(batch=1:getDoParWorkers(), .combine=function(...) {}) %do% {
             res0 <- res0[1:which(ns == n),, drop=FALSE]
             final0 <- matrix(NA, nrow=length(boundaries), ncol=ncol(final))
             
-            # loop through all boundaries
+            # 遍历边界 loop through all boundaries
             old_hit_row <- 0
             for (l in 1:length(boundaries)) {
               # find the n where the boundary was exceeded
@@ -150,6 +153,11 @@ sim <- foreach(batch=1:getDoParWorkers(), .combine=function(...) {}) %do% {
               }
               old_hit_row <- hit_row
               
+              if (!is.na(hit_row)) {
+                
+                final0[l, 1] <- boundaries[l]
+                final0[l, 2:12]  <- res0[hit_row, ]
+              }
             }
             
             break;
@@ -167,6 +175,7 @@ sim <- foreach(batch=1:getDoParWorkers(), .combine=function(...) {}) %do% {
           print(paste0("Skipping replication ", b, " at r = ", r, " because it did not reach a boundary!"))
         }
       } # of r's
+      
       
       res <- res[1:res.counter-1, ]				
       
@@ -194,6 +203,7 @@ sim <- foreach(batch=1:getDoParWorkers(), .combine=function(...) {}) %do% {
     print(paste0("finished eta=", eta, "; batch=", batch))
     
   }
+  
 }
 
 end <- Sys.time()
