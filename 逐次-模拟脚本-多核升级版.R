@@ -10,7 +10,7 @@ getDoParWorkers()
 minN <- 5				# 最小样本数
 maxN <- 10000			# 最大样本数
 B = 3600
-#B <- 50016				# bootstrap样本数，应该被核心数整除 number of bootstrap samples (should be dividable by getDoParWorkers())
+#B <- 7636				# bootstrap样本数，应该被核心数整除 number of bootstrap samples (should be dividable by getDoParWorkers())
 maxBoundary <- log(30)	# 最大边界的停止值，取对数
 boundaries <- seq(3, 30, by=1)	# 所有的边界3-30，1为间隔
 etas = 0.01
@@ -22,9 +22,9 @@ c = getDoParWorkers()
 #生成指定效果了大小的母集团
 get_population <- function(n, eta2, SD=1) {
   cohen_f <- sqrt(eta2/(1-eta2))
-  
   x <- rnorm(n, 0, SD) + cohen_f
   y <- rnorm(n, 0, SD) - cohen_f
+  z <- rnorm(n,0,sd)
   return(cbind(x, y))
 }
 #计算各种效应量的函数
