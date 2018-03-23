@@ -7,7 +7,8 @@ registerDoParallel(cl)
 getDoParWorkers()
 
 
-minN <- 5				# 最小样本数
+minN <- 10
+# 最小样本数
 maxN <- 10000			# 最大样本数
 B = 3600
 #B <- 7636				# bootstrap样本数，应该被核心数整除 number of bootstrap samples (should be dividable by getDoParWorkers())
@@ -21,11 +22,11 @@ rs <- c(sqrt(2)/2, 1, sqrt(2))  #柯西分布的参数
 c = getDoParWorkers()
 #生成指定效果了大小的母集团
 get_population <- function(n, eta2, SD=1) {
-  cohen_f <- sqrt(eta2/(1-eta2))
+  cohen_f <- sqrt(3*eta2/((1-eta2)*2))
   x <- rnorm(n, 0, SD) + cohen_f
   y <- rnorm(n, 0, SD) - cohen_f
-  z <- rnorm(n,0,sd)
-  return(cbind(x, y))
+  z <- rnorm(n,0,SD)
+  return(cbind(x,y,z))
 }
 #计算各种效应量的函数
 eta2 <- function(y){
@@ -78,8 +79,8 @@ foreach(batch=1:getDoParWorkers(),
     # rep是小b final saves the data at all stopping points
     final <- matrix(NA, nrow=length(boundaries)*length(rs)*max_b, ncol=12, dimnames=list(NULL, c("boundary", "eta", "r", "batch", "rep", "n", "logBF", "eat.emp", " omega.emp", "epsilon.emp","f.value", "p.value")))
     final.counter <- 1
-    #获得模样本，1百万，
-    pop <- get_population(1000000, eta)
+    #获得总样本，5百万，
+    pop <- get_population(5000000, eta)
     print(paste0(Sys.time(), ": batch = ", batch, "; eta = ", eta))
     
     for (b in 1:max_b) {
@@ -104,14 +105,13 @@ foreach(batch=1:getDoParWorkers(),
           # 生成样本
           samp <- maxsamp[1:n, ]
           N <- nrow(samp)
-          samp = data.frame(y = c(samp),x = factor(rep(1:2,each=n)))
+          samp = data.frame(y = c(samp),x = factor(rep(1:3,each=n)))
           
           # 计算分散分析和BF
           f0 <- summary(aov(y~x,data = samp))
           f.v = c(f0[[1]]$`F value`[1])
-          BF0 = anovaBF(y~x,data = samp,rscaleEffects = r,progress=F)@bayesFactor$bf
-          
-          #BF0 = oneWayAOV.Fstat(f.v, n, 2, rscale = r, simple = TRUE)
+          #BF0 = anovaBF(y~x,data = samp,rscaleFixed = r,progress=F)@bayesFactor$bf
+          BF0 = log(oneWayAOV.Fstat(f.v, n, 3, rscale = r, simple = TRUE))
           
           res0[which(ns == n), ]<- c(
             eta	= eta, 
