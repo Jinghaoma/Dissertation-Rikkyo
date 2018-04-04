@@ -10,11 +10,11 @@ getDoParWorkers()
 minN <- 10
 # 最小样本数
 maxN <- 10000			# 最大样本数
-B = 3600
-#B <- 7636				# bootstrap样本数，应该被核心数整除 number of bootstrap samples (should be dividable by getDoParWorkers())
+#B = 3600
+B <- 50004				# bootstrap样本数，应该被核心数整除 number of bootstrap samples (should be dividable by getDoParWorkers())
 maxBoundary <- log(30)	# 最大边界的停止值，取对数
 boundaries <- seq(3, 30, by=1)	# 所有的边界3-30，1为间隔
-etas = 0.01
+etas = c(0.005,0.01,0.03,0.06,0.1,0.14,0.3,0.5,0.8)
 #etas <- seq(0.5, 0.05, by=-.05)    #效应量大小
 #etas <- seq(0, 0.5, by=.05)    #效应量大小
 rs <- c(sqrt(2)/2, 1, sqrt(2))  #柯西分布的参数
